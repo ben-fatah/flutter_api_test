@@ -11,8 +11,7 @@ A simple Flutter app that demonstrates fetching and displaying data from a REST 
 
 ## Screenshots
 
-<!-- Add screenshots here if available -->
-<!-- ![Screenshot](screenshots/screenshot1.png) -->
+![alt text](image.png)
 
 ## Getting Started
 

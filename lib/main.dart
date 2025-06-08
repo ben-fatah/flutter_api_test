@@ -11,7 +11,7 @@ Future<List<Post>> fetchPosts() async {
 
     if (response.statusCode == 200) {
       List jsonResponse = json.decode(response.body);
-      return jsonResponse.map((post) => Post.fromJson(post)).toList();
+      return jsonResponse.map<Post>((post) => Post.fromJson(post)).toList();
     } else {
       throw Exception('Failed to load posts');
     }
@@ -30,6 +30,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Api Lab',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+      ),
       home: const PostList(),
       debugShowCheckedModeBanner: false,
     );
@@ -45,6 +49,7 @@ class PostList extends StatefulWidget {
 
 class _PostListState extends State<PostList> {
   late Future<List<Post>> futurePosts;
+  bool _isRetrying = false;
 
   @override
   void initState() {
@@ -52,42 +57,85 @@ class _PostListState extends State<PostList> {
     futurePosts = fetchPosts();
   }
 
+  void _refreshPosts() {
+    setState(() {
+      futurePosts = fetchPosts();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('API Data'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshPosts,
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
       body: FutureBuilder<List<Post>>(
         future: futurePosts,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting || _isRetrying) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Failed to load data.'),
-                  Text('Error: ${snapshot.error}'),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        futurePosts = fetchPosts(); // Retry fetching data
-                      });
-                    },
-                    child: const Text('Retry'),
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, color: Colors.red, size: 48),
+                    const SizedBox(height: 12),
+                    const Text('Failed to load data.', style: TextStyle(fontSize: 18)),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${snapshot.error}',
+                      style: const TextStyle(color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        setState(() {
+                          _isRetrying = true;
+                        });
+                        await Future.delayed(const Duration(milliseconds: 500));
+                        setState(() {
+                          futurePosts = fetchPosts();
+                          _isRetrying = false;
+                        });
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
               ),
             );
           } else if (snapshot.hasData) {
-            return ListView.builder(
+            return ListView.separated(
+              padding: const EdgeInsets.all(12),
               itemCount: snapshot.data!.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(snapshot.data![index].title),
-                  subtitle: Text(snapshot.data![index].body),
+                final post = snapshot.data![index];
+                return Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: ListTile(
+                    title: Text(
+                      post.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(post.body),
+                    ),
+                  ),
                 );
               },
             );
